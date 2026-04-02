@@ -74,8 +74,8 @@
 
   <div class="stats">
     <div class="stat"><div class="stat-num" style="color:#185fa5">39</div><div class="stat-label">Total closed in 2026</div></div>
-    <div class="stat"><div class="stat-num" style="color:#27500a">20</div><div class="stat-label">Root cause fixed</div></div>
-    <div class="stat"><div class="stat-num" style="color:#0c447c">4</div><div class="stat-label">Mitigated</div></div>
+    <div class="stat"><div class="stat-num" style="color:#27500a">18</div><div class="stat-label">Root cause fixed</div></div>
+    <div class="stat"><div class="stat-num" style="color:#0c447c">6</div><div class="stat-label">Mitigated</div></div>
     <div class="stat"><div class="stat-num" style="color:#c0dd97; background:#173404; border-radius:8px; padding:4px 0;">15</div><div class="stat-label">Case resolved</div></div>
   </div>
 
@@ -88,7 +88,7 @@
       </div>
       <div class="legend-item">
         <span class="legend-pill rc-mitigated pill">Mitigated</span>
-        <span class="legend-desc"><strong>Customer-facing impact has been stopped or significantly reduced,</strong> but the full systemic fix is still in progress or tracked in a dedicated follow-up task.</span>
+        <span class="legend-desc"><strong>Customer-facing impact has been stopped or significantly reduced,</strong> but the full systemic fix is still in progress or tracked in a dedicated follow-up task or initiative.</span>
       </div>
       <div class="legend-item">
         <span class="legend-pill rc-resolved pill">Case resolved</span>
@@ -125,9 +125,9 @@
         <tr>
           <td><div class="bug-name">DE — non-giftable deals showing "Buy as a Gift" button</div><a class="asana-link" href="https://app.asana.com/0/0/1213630198982223/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 23</td>
-          <td class="text-muted">Giftability flag not driving UI visibility in DE; market-specific configuration gap</td>
-          <td class="text-muted">Giftability flag enforcement applied to DE; "Buy as a Gift" button now gated on IsGiftable across all markets</td>
-          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td class="text-muted">Giftability flag not driving UI visibility in DE; deals appearing on gifting pages without a functioning "Buy as Gift" button</td>
+          <td class="text-muted">Closed pending resolution via the 3PIP Giftability initiative, which addresses the underlying flag management across all markets</td>
+          <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
 
@@ -135,8 +135,8 @@
           <td><div class="bug-name">3PIP Gifting Measurement Cleanup</div><a class="asana-link" href="https://app.asana.com/0/0/1212414570578454/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 24</td>
           <td class="text-muted">3PIP deals incorrectly tagged as giftable in measurement layer; bcookie signal over-attributing gift units vs. canonical intend_as_gift flag</td>
-          <td class="text-muted">Tagging, eligibility signals and actual gifting measurement aligned; data pipeline corrected</td>
-          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td class="text-muted">Closed by Linda Mar 24 with fix tracked in the 3PIP engineering task. Measurement alignment being resolved as part of the broader 3PIP initiative</td>
+          <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
 
@@ -144,7 +144,7 @@
           <td><div class="bug-name">Gifting Trail incomplete when Gift Card accepted via email or SMS</div><a class="asana-link" href="https://app.asana.com/0/0/1211848066140114/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Mar 24</td>
           <td class="text-muted">Gift Card add-to-account via email/SMS link bypassed the gifting trail recording step; trail only populated via main gifting flow</td>
-          <td class="text-muted">Closed and consolidated into a dedicated follow-up task where the fix is being implemented (per Adithya, Mar 23)</td>
+          <td class="text-muted">Closed and consolidated into a dedicated follow-up task where the fix is being implemented</td>
           <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
           <td><span class="cat-pill">Flow/routing</span></td>
         </tr>
@@ -326,7 +326,7 @@
           <td><div class="bug-name">Inconsistency in gift eligibility visibility for Sam's Club deals</div><a class="asana-link" href="https://app.asana.com/0/0/1212431311763923/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Feb 6</td>
           <td class="text-muted">IsGiftable flag inconsistent across customer sessions for Sam's Club deals — data sync issue surfaced as part of broader 3PIP giftability review</td>
-          <td class="text-muted">Eligibility flag standardized for Sam's Club deals; full 3PIP giftability measurement cleanup completed in March</td>
+          <td class="text-muted">Eligibility flag standardized for Sam's Club deals; full 3PIP giftability measurement cleanup in progress as part of the 3PIP initiative</td>
           <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
