@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gifting Bugs — Root Cause Analysis 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f6f3; --surface: #ffffff; --border: #e4e2dc; --border-strong: #cccab8;
+    --text-primary: #1a1916; --text-secondary: #6b6960; --text-tertiary: #9c9a8e;
+    --green-dark-bg: #173404; --green-dark-text: #c0dd97;
+    --green-bg: #eaf3de; --green-text: #27500a;
+    --blue-bg: #ddeefa; --blue-text: #0c447c;
+    --p1-bg: #fdf0ee; --p1-text: #8b2a1a;
+    --p2-bg: #fdf4e3; --p2-text: #7a4510;
+    --p3-bg: #eaf3de; --p3-text: #27500a;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); line-height: 1.6; padding: 48px 24px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .header { margin-bottom: 40px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  .header-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #27500a; background: var(--green-bg); padding: 4px 10px; border-radius: 4px; margin-bottom: 12px; }
+  .header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 8px; }
+  .header-meta { font-size: 13px; color: var(--text-tertiary); font-family: 'DM Mono', monospace; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 36px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; }
+  .stat-num { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 6px; }
+  .stat-label { font-size: 12px; color: var(--text-secondary); }
+  .legend-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 28px; }
+  .legend-title { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 14px; }
+  .legend-items { display: flex; flex-direction: column; gap: 10px; }
+  .legend-item { display: flex; align-items: flex-start; gap: 12px; }
+  .legend-pill { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 2px; min-width: 120px; text-align: center; }
+  .legend-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .legend-desc strong { color: var(--text-primary); font-weight: 500; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+  .month-header { background: var(--bg); padding: 10px 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .month-count { background: var(--border); color: var(--text-secondary); font-size: 10px; padding: 1px 6px; border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { padding: 10px 16px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); border-bottom: 1px solid var(--border); background: var(--bg); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf7; }
+  td { padding: 13px 16px; vertical-align: top; line-height: 1.5; }
+  .bug-name { font-weight: 500; color: var(--text-primary); margin-bottom: 4px; font-size: 13px; }
+  .asana-link { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--blue-text); text-decoration: none; font-family: 'DM Mono', monospace; opacity: 0.8; transition: opacity 0.15s; margin-right: 6px; }
+  .asana-link:hover { opacity: 1; text-decoration: underline; }
+  .pill { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+  .p1 { background: var(--p1-bg); color: var(--p1-text); }
+  .p2 { background: var(--p2-bg); color: var(--p2-text); }
+  .p3 { background: var(--p3-bg); color: var(--p3-text); }
+  .pm { background: var(--blue-bg); color: var(--blue-text); }
+  .rc-fixed     { background: var(--green-bg); color: var(--green-text); }
+  .rc-mitigated { background: var(--blue-bg); color: var(--blue-text); }
+  .rc-resolved  { background: var(--green-dark-bg); color: var(--green-dark-text); }
+  .cat-pill { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-strong); color: var(--text-secondary); white-space: nowrap; }
+  .text-muted { color: var(--text-secondary); }
+  .text-mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .rc-cell { white-space: nowrap; }
+  .footer { font-size: 12px; color: var(--text-tertiary); padding: 16px 0; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  @media (max-width: 900px) { .stats { grid-template-columns: repeat(2,1fr); } table { font-size: 12px; } td, thead th { padding: 10px 12px; } }
+  @media (max-width: 600px) { body { padding: 24px 16px; } .header h1 { font-size: 22px; } .stats { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-badge">Gifting · Product Quality</div>
+    <h1>Gifting Bugs — Root Cause Analysis</h1>
+    <div class="header-meta">39 bugs closed · Jan – Mar 2026 · Closure reasons verified from Asana task comments · Last updated Mar 31, 2026</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num" style="color:#185fa5">39</div><div class="stat-label">Total closed in 2026</div></div>
+    <div class="stat"><div class="stat-num" style="color:#27500a">20</div><div class="stat-label">Root cause fixed</div></div>
+    <div class="stat"><div class="stat-num" style="color:#0c447c">4</div><div class="stat-label">Mitigated</div></div>
+    <div class="stat"><div class="stat-num" style="color:#c0dd97; background:#173404; border-radius:8px; padding:4px 0;">15</div><div class="stat-label">Case resolved</div></div>
+  </div>
+
+  <div class="legend-block">
+    <div class="legend-title">Status definitions</div>
+    <div class="legend-items">
+      <div class="legend-item">
+        <span class="legend-pill rc-fixed pill">Root cause fixed</span>
+        <span class="legend-desc"><strong>The underlying technical issue has been identified and resolved.</strong> A recurrence would require a new failure — not the same code path. Verified from Jira releases or explicit confirmation in task comments.</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-pill rc-mitigated pill">Mitigated</span>
+        <span class="legend-desc"><strong>Customer-facing impact has been stopped or significantly reduced,</strong> but the full systemic fix is still in progress or tracked in a dedicated follow-up task.</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-pill rc-resolved pill">Case resolved</span>
+        <span class="legend-desc"><strong>The specific case was closed</strong> — either the issue could not be reproduced, it was reclassified as a feature request, or a business decision was made. No recurrence reported.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARCH -->
+  <div class="table-wrap">
+    <div class="month-header">March 2026 <span class="month-count">20 bugs</span></div>
+    <table>
+      <thead><tr><th style="width:26%">Bug</th><th style="width:5%">Prio</th><th style="width:5%">Closed</th><th style="width:21%">Root cause</th><th style="width:21%">Fix / closure reason</th><th style="width:13%">Status</th><th style="width:9%">Category</th></tr></thead>
+      <tbody>
+
+        <tr>
+          <td><div class="bug-name">Update gifting tag logic — non-giftable deals showing gifting tags</div><a class="asana-link" href="https://app.asana.com/0/0/1212379958470253/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 27</td>
+          <td class="text-muted">Gifting merchandising tags applied independently of IsGiftable flag — two systems not in sync</td>
+          <td class="text-muted">Logic fix deployed to gate tag display on IsGiftable flag; non-giftable deals removed from gifting pages</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Non-transferable clause in Gifting deals</div><a class="asana-link" href="https://app.asana.com/0/0/1212531245251251/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Mar 27</td>
+          <td class="text-muted">1,284 giftable deals identified with non-transferable clauses in fine print — some merchants used these to refuse gifted vouchers</td>
+          <td class="text-muted">Business decision agreed with Linda: keep deals non-transferable for now. Affected deals documented and tracked in a follow-up task</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Business logic</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">DE — non-giftable deals showing "Buy as a Gift" button</div><a class="asana-link" href="https://app.asana.com/0/0/1213630198982223/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 23</td>
+          <td class="text-muted">Giftability flag not driving UI visibility in DE; market-specific configuration gap</td>
+          <td class="text-muted">Giftability flag enforcement applied to DE; "Buy as a Gift" button now gated on IsGiftable across all markets</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">3PIP Gifting Measurement Cleanup</div><a class="asana-link" href="https://app.asana.com/0/0/1212414570578454/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 24</td>
+          <td class="text-muted">3PIP deals incorrectly tagged as giftable in measurement layer; bcookie signal over-attributing gift units vs. canonical intend_as_gift flag</td>
+          <td class="text-muted">Tagging, eligibility signals and actual gifting measurement aligned; data pipeline corrected</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gifting Trail incomplete when Gift Card accepted via email or SMS</div><a class="asana-link" href="https://app.asana.com/0/0/1211848066140114/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Mar 24</td>
+          <td class="text-muted">Gift Card add-to-account via email/SMS link bypassed the gifting trail recording step; trail only populated via main gifting flow</td>
+          <td class="text-muted">Closed and consolidated into a dedicated follow-up task where the fix is being implemented (per Adithya, Mar 23)</td>
+          <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Costco Gift Card — visibility in search</div><a class="asana-link" href="https://app.asana.com/0/0/1213567308635697/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 30</td>
+          <td class="text-muted">Gift card merchant name is "Groupon" rather than the brand name — search engine had no category-to-merchant mapping for branded gift cards</td>
+          <td class="text-muted">Carl (Booster) deployed a universal gift card search mapping on Mar 20 — gift cards now associated across all categories, making them discoverable by merchant name</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gift Cards internal search visibility</div><a class="asana-link" href="https://app.asana.com/0/0/1213295590309714/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 30</td>
+          <td class="text-muted">Same structural issue as Costco — all branded gift cards assigned to Groupon as merchant, blocking search association with brand names</td>
+          <td class="text-muted">Resolved by same Booster deployment. All branded gift cards now discoverable via merchant name search across the platform</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Support ID vanishes from the voucher page when a gift is claimed</div><a class="asana-link" href="https://app.asana.com/0/0/1211848067130267/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 30</td>
+          <td class="text-muted">Support ID conditionally rendered based on gift claim state; UI logic hid it once gift was claimed, leaving CS agents without a reference for support</td>
+          <td class="text-muted">Fixed and verified by Dennis with screenshots (Mar 30) — Support ID now always visible on the voucher page regardless of claim status</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">UI/UX</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Unable to create a gift deal giftable (DE)</div><a class="asana-link" href="https://app.asana.com/0/0/1213466085608088/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 30</td>
+          <td class="text-muted">G-Live deal fine print indicated giftability but "Buy as Gift" button was absent — likely a fine print copy mismatch on a specific deal</td>
+          <td class="text-muted">Deal went offline before fix could be applied; similar G-Live deals verified to have gifting enabled. Closed as no longer reproducible</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gift order is not visible in Cyclops</div><a class="asana-link" href="https://app.asana.com/0/0/1213413570720134/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 30</td>
+          <td class="text-muted">Cyclops "Received Gifts" returning an error for specific gifted orders; data consistency issue between gifting trail and Cyclops order lookup</td>
+          <td class="text-muted">Engineering fix raised in Jira GSOIT-6202 (Michal Jilka, Feb 25) and taken into sprint. Task closed by Cyclops team upon resolution</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Booking date on the Gift Voucher remains static</div><a class="asana-link" href="https://app.asana.com/0/0/1212402672769836/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 18</td>
+          <td class="text-muted">Booking date rendered at order creation time using a static template variable; rescheduling the appointment did not update the gift voucher</td>
+          <td class="text-muted">Released via GPD-5 (Mar 18). Dennis confirmed with full testing screenshots in Jira — voucher now reflects updated booking date dynamically</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Business logic</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Multi Quantity Gift Voucher Problems (tracker)</div><a class="asana-link" href="https://app.asana.com/0/0/1211135305896055/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 18</td>
+          <td class="text-muted">Central tracking task for multi-qty gifting edge cases across purchase, delivery and add-to-account flows; VU-8053 raised and released for core sibling voucher issues</td>
+          <td class="text-muted">Dennis confirmed all tracked issues addressed (Mar 18). VU-8053 released. Remaining edge cases deprioritised given 94% of gift orders are single-item</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Multi-qty</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Unable to create Gift Vouchers from order confirmation page (all quantities)</div><a class="asana-link" href="https://app.asana.com/0/0/1210725325943373/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 18</td>
+          <td class="text-muted">Order confirmation page only supported single voucher creation; no loop over quantity for multi-item orders</td>
+          <td class="text-muted">Reclassified as a feature request after data review — 94% of gift orders are single-item; ~6% multi-item. Deprioritised; design review required before implementation</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Multi-qty</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gift Recipient Verification Friction</div><a class="asana-link" href="https://app.asana.com/0/0/1213356815559295/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 11</td>
+          <td class="text-muted">CES impact driven by CS agents not accepting redemption codes as valid verification and poor Support ID discoverability in gift emails</td>
+          <td class="text-muted">Escalated to CS process improvement via GLD intake task. Agent guidance updated, Support ID visibility improved. Systemic training tracked separately</td>
+          <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
+          <td><span class="cat-pill">UI/UX</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gift function disappears when the deal is not live</div><a class="asana-link" href="https://app.asana.com/0/0/1211591349999440/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 10</td>
+          <td class="text-muted">Gift CTA appeared dependent on deal live status at render time; initial reports suggested recipients lost access when deals went offline</td>
+          <td class="text-muted">Could not reproduce after thorough investigation. No new cases reported. Legacy web edge case tracked via GPD-83. Closed as resolved</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Business logic</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Deal is not Gift-eligible but has gifting info in 'How to Use'</div><a class="asana-link" href="https://app.asana.com/0/0/1212361352179431/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 19</td>
+          <td class="text-muted">How to Use content inherited from deal template regardless of giftability flag; gifting instructions shown even for non-giftable deals</td>
+          <td class="text-muted">Gifting section in How to Use now conditioned on IsGiftable flag; non-giftable deals no longer show misleading gifting instructions</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Content/copy</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Order confirmation email — gifting redirect bug</div><a class="asana-link" href="https://app.asana.com/0/0/1212435248427638/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 4</td>
+          <td class="text-muted">"Personalize gift" deep link in order confirmation email routed to homepage instead of the specific voucher in My Groupons; incorrect URL parameter construction</td>
+          <td class="text-muted">Deep link corrected to route directly to the purchased voucher in My Groupons</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">No confirmation that voucher was added</div><a class="asana-link" href="https://app.asana.com/0/0/1212641685856534/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 4</td>
+          <td class="text-muted">Add-to-account flow completed silently with no success state; customers could not confirm whether the voucher had been added</td>
+          <td class="text-muted">Success confirmation UI added to the add-to-account flow</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">UI/UX</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">ES — Voucher automatically marked as Gifted on Legacy Spain</div><a class="asana-link" href="https://app.asana.com/0/0/1212625896152661/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 4</td>
+          <td class="text-muted">Legacy Spain site triggering the gift flag at deal selection stage rather than on explicit "Buy as Gift" confirmation; incorrect event sequence</td>
+          <td class="text-muted">Event trigger corrected; gift flag now only set on confirmed "Buy as Gift" action</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Business logic</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Black on black when adding voucher, no picture</div><a class="asana-link" href="https://app.asana.com/0/0/1213610667656427/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 23</td>
+          <td class="text-muted">Voucher add-to-account UI rendering issue: dark text on dark background and missing image asset; CSS variable not applied correctly in this view context</td>
+          <td class="text-muted">CSS contrast corrected; image loading fallback added</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">UI/UX</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FEBRUARY -->
+  <div class="table-wrap">
+    <div class="month-header">February 2026 <span class="month-count">15 bugs</span></div>
+    <table>
+      <thead><tr><th style="width:26%">Bug</th><th style="width:5%">Prio</th><th style="width:5%">Closed</th><th style="width:21%">Root cause</th><th style="width:21%">Fix / closure reason</th><th style="width:13%">Status</th><th style="width:9%">Category</th></tr></thead>
+      <tbody>
+
+        <tr>
+          <td><div class="bug-name">SEV — Gift cards refunded when redeemed</div><a class="asana-link" href="https://app.asana.com/0/0/1212863044732597/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Feb 18</td>
+          <td class="text-muted">Race condition: redeem session and refund action ran concurrently with no idempotency check on redemption state, allowing credit to be applied post-refund</td>
+          <td class="text-muted">State lock added to redeem flow; idempotency check prevents credit application after refund has been issued</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Race condition</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gift voucher templates not reflecting in gifting emails</div><a class="asana-link" href="https://app.asana.com/0/0/1208868087405606/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill pm">High</span></td><td class="text-mono text-muted">Feb 12</td>
+          <td class="text-muted">Template service not propagating updated voucher templates to the email rendering layer; caching issue between template store and email renderer</td>
+          <td class="text-muted">Template cache invalidation corrected; deployment process updated to push template changes to email renderer on release</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Remove Review Restriction for Gifted Deals</div><a class="asana-link" href="https://app.asana.com/0/0/1211935958868886/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Feb 25</td>
+          <td class="text-muted">Legacy rule from ~2019 prevented recipients of gifted deals from leaving reviews; original rationale was lost and rule was never revisited</td>
+          <td class="text-muted">Restriction removed; gifted deal recipients can now leave reviews</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Business logic</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Inconsistency in gift eligibility visibility for Sam's Club deals</div><a class="asana-link" href="https://app.asana.com/0/0/1212431311763923/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Feb 6</td>
+          <td class="text-muted">IsGiftable flag inconsistent across customer sessions for Sam's Club deals — data sync issue surfaced as part of broader 3PIP giftability review</td>
+          <td class="text-muted">Eligibility flag standardized for Sam's Club deals; full 3PIP giftability measurement cleanup completed in March</td>
+          <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">MBNXT — check the tagging on the gifting pages</div><a class="asana-link" href="https://app.asana.com/0/0/1212369837733339/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Feb 12</td>
+          <td class="text-muted">Gifting page analytics events missing or incorrectly implemented after MBNXT migration; events firing on wrong elements or not at all</td>
+          <td class="text-muted">Tagging audit completed; missing Bloodhound events added to gifting page components in MBNXT</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Unable to add a multi-qty gift order where order was partially redeemed</div><a class="asana-link" href="https://app.asana.com/0/0/1211134220808158/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p3">P3</span></td><td class="text-mono text-muted">Feb 12</td>
+          <td class="text-muted">Add-to-account flow processed all vouchers in an order atomically; when some were already redeemed, the entire operation failed, blocking unredeemed vouchers</td>
+          <td class="text-muted">Flow updated to handle partial redemption state; remaining unredeemed vouchers in a multi-qty order can now be added independently</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Multi-qty</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">ES — Wrong ES content in the gifting email</div><a class="asana-link" href="https://app.asana.com/0/0/1210995067646881/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p3">P3</span></td><td class="text-mono text-muted">Feb 11</td>
+          <td class="text-muted">Spanish localisation content not correctly mapped to the ES locale in the gifting email template; wrong locale key used in the translation layer</td>
+          <td class="text-muted">ES content corrected in gifting email template; locale mapping verified across all INTL markets</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Content/copy</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Make the Support ID more visible on Gift Emails</div><a class="asana-link" href="https://app.asana.com/0/0/1213413570720141/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p3">P3</span></td><td class="text-mono text-muted">Feb 26</td>
+          <td class="text-muted">Support ID was present in gift emails but carried low visual prominence — small font, no emphasis — making it hard to locate for customers and CS agents</td>
+          <td class="text-muted">Support ID styling updated in gift email template; now displayed more prominently to improve CS efficiency and customer self-service</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">UI/UX</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">SEO Valentine's drop</div><a class="asana-link" href="https://app.asana.com/0/0/1213327779532619/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Feb 23</td>
+          <td class="text-muted">Gifting SEO pages lost ranking during Valentine's period — combination of thin content on gifting landing pages and a wider site-level SEO regression</td>
+          <td class="text-muted">Investigation completed and findings shared with SEO team. Content and metadata gaps identified for future seasonal campaigns</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Content/copy</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Unable to create a Gift / Unable to add a gift (AU, US)</div><a class="asana-link" href="https://app.asana.com/0/0/1213420466396549/f" target="_blank">↗ Asana</a> <a class="asana-link" href="https://app.asana.com/0/0/1213445220491222/f" target="_blank">↗ Asana 2</a></td>
+          <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Feb 26</td>
+          <td class="text-muted">CS-reported gift creation and add-to-account failures in AU and US markets; likely downstream eligibility check timeouts</td>
+          <td class="text-muted">Individual customer cases resolved via CS. No recurrence reported</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Unable to add a gift to the account (US)</div><a class="asana-link" href="https://app.asana.com/0/0/1213282585430788/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Feb 20</td>
+          <td class="text-muted">Individual redemption failure in US market; voucher add-to-account blocked for a specific customer</td>
+          <td class="text-muted">Customer case resolved via CS. No recurrence reported</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Incorrect booking instructions for a Gift order (IE)</div><a class="asana-link" href="https://app.asana.com/0/0/1213304221809127/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Feb 18</td>
+          <td class="text-muted">Gift voucher displaying incorrect booking instructions for an IE-specific deal type — wrong template variant served for this deal configuration</td>
+          <td class="text-muted">Content corrected for the specific deal. No recurrence reported</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Content/copy</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Confirmation on adding voucher to the account</div><a class="asana-link" href="https://app.asana.com/0/0/1211848066140126/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Feb 6</td>
+          <td class="text-muted">Same underlying issue as the March "No confirmation" bug — add-to-account success state not surfaced to the user across multiple markets</td>
+          <td class="text-muted">Addressed as part of the same UI fix deployed Mar 4; success confirmation now shown consistently across all markets</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">UI/UX</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Missing Groupon Gift Cards and flowers deals (Santa Clarita, CA)</div><a class="asana-link" href="https://app.asana.com/0/0/1210364229254773/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p3">P3</span></td><td class="text-mono text-muted">Feb 6</td>
+          <td class="text-muted">Location-based inventory filter excluding gift card deals for this specific geo; radius or category filter misconfiguration in US local search</td>
+          <td class="text-muted">Deal visibility corrected for the affected location via configuration fix. No recurrence reported</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Data/config</span></td>
+        </tr>
+
+        <tr>
+          <td><div class="bug-name">Gift order is not visible in Cyclops (Feb instance)</div><a class="asana-link" href="https://app.asana.com/0/0/1213413570720134/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill pm">—</span></td><td class="text-mono text-muted">Feb</td>
+          <td class="text-muted">Cyclops lookup error for a specific gifted order — data consistency issue between gifting trail and order lookup</td>
+          <td class="text-muted">Individual case resolved. Systemic fix addressed via GSOIT-6202 (see March instance)</td>
+          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- JANUARY -->
+  <div class="table-wrap">
+    <div class="month-header">January 2026 <span class="month-count">1 bug</span></div>
+    <table>
+      <thead><tr><th style="width:26%">Bug</th><th style="width:5%">Prio</th><th style="width:5%">Closed</th><th style="width:21%">Root cause</th><th style="width:21%">Fix / closure reason</th><th style="width:13%">Status</th><th style="width:9%">Category</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><div class="bug-name">TradeAP — INFOBIP Integration issue (GRINT 18362/25)</div><a class="asana-link" href="https://app.asana.com/0/0/1212675692983370/f" target="_blank">↗ Asana</a></td>
+          <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Jan 22</td>
+          <td class="text-muted">Third-party SMS/notification provider (Infobip) integration issue affecting gift notification delivery for international markets</td>
+          <td class="text-muted">Resolved via partner coordination with Infobip; integration restored and verified</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
+          <td><span class="cat-pill">Flow/routing</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <span>Gifting Team · Groupon · All closure reasons verified from Asana task comments and Jira references</span>
+    <span>Last updated Mar 31, 2026</span>
+  </div>
+
+</div>
+</body>
+</html>
