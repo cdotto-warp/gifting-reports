@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
 <title>Gifting Bugs — Root Cause Analysis 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -70,14 +69,14 @@
   <div class="header">
     <div class="header-badge">Gifting · Product Quality</div>
     <h1>Gifting Bugs — Root Cause Analysis</h1>
-    <div class="header-meta">39 bugs closed · Jan – Mar 2026 · Closure reasons verified from Asana task comments · Last updated Mar 31, 2026</div>
+    <div class="header-meta">39 bugs closed · Jan – Mar 2026 · Closure reasons verified from Asana task comments · Last updated Apr 3, 2026</div>
   </div>
 
   <div class="stats">
     <div class="stat"><div class="stat-num" style="color:#185fa5">39</div><div class="stat-label">Total closed in 2026</div></div>
-    <div class="stat"><div class="stat-num" style="color:#27500a">18</div><div class="stat-label">Root cause fixed</div></div>
+    <div class="stat"><div class="stat-num" style="color:#27500a">20</div><div class="stat-label">Root cause fixed</div></div>
     <div class="stat"><div class="stat-num" style="color:#0c447c">6</div><div class="stat-label">Mitigated</div></div>
-    <div class="stat"><div class="stat-num" style="color:#c0dd97; background:#173404; border-radius:8px; padding:4px 0;">15</div><div class="stat-label">Case resolved</div></div>
+    <div class="stat"><div class="stat-num" style="color:#c0dd97; background:#173404; border-radius:8px; padding:4px 0;">13</div><div class="stat-label">Case resolved</div></div>
   </div>
 
   <div class="legend-block">
@@ -85,7 +84,7 @@
     <div class="legend-items">
       <div class="legend-item">
         <span class="legend-pill rc-fixed pill">Root cause fixed</span>
-        <span class="legend-desc"><strong>The underlying technical issue has been identified and resolved.</strong> A recurrence would require a new failure — not the same code path. Verified from Jira releases or explicit confirmation in task comments.</span>
+        <span class="legend-desc"><strong>The underlying technical or business issue has been identified and resolved.</strong> A recurrence would require a new failure. Verified from Jira releases or explicit confirmation in task comments.</span>
       </div>
       <div class="legend-item">
         <span class="legend-pill rc-mitigated pill">Mitigated</span>
@@ -109,7 +108,7 @@
           <td><div class="bug-name">Update gifting tag logic — non-giftable deals showing gifting tags</div><a class="asana-link" href="https://app.asana.com/0/0/1212379958470253/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 27</td>
           <td class="text-muted">Gifting merchandising tags applied independently of IsGiftable flag — two systems not in sync</td>
-          <td class="text-muted">Logic fix deployed to gate tag display on IsGiftable flag; non-giftable deals removed from gifting pages</td>
+          <td class="text-muted">GPD-161: IsGiftable = TRUE now required as primary condition before any gifting tag can be applied. Non-giftable deals removed from gifting pages</td>
           <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
@@ -126,9 +125,9 @@
         <tr>
           <td><div class="bug-name">DE — non-giftable deals showing "Buy as a Gift" button</div><a class="asana-link" href="https://app.asana.com/0/0/1213630198982223/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 23</td>
-          <td class="text-muted">Giftability flag not driving UI visibility in DE; deals appearing on gifting pages without a functioning "Buy as Gift" button</td>
-          <td class="text-muted">Closed pending resolution via the 3PIP Giftability initiative, which addresses the underlying flag management across all markets</td>
-          <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
+          <td class="text-muted">GrouponLive / Things to Do deals correctly flagged as non-giftable (live events with fixed dates don't fit the gifting model) but were still appearing on gifting pages due to PDS-level tag logic</td>
+          <td class="text-muted">GPD-161: IsGiftable = TRUE now required before any gifting tag is applied, removing these deals from gifting pages. The Non-Giftable flag itself was confirmed correct by investigation</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
 
@@ -136,7 +135,7 @@
           <td><div class="bug-name">3PIP Gifting Measurement Cleanup</div><a class="asana-link" href="https://app.asana.com/0/0/1212414570578454/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p1">P1</span></td><td class="text-mono text-muted">Mar 24</td>
           <td class="text-muted">3PIP deals incorrectly tagged as giftable in measurement layer; bcookie signal over-attributing gift units vs. canonical intend_as_gift flag</td>
-          <td class="text-muted">Closed by Linda Mar 24 with fix tracked in the 3PIP engineering task. Measurement alignment being resolved as part of the broader 3PIP initiative</td>
+          <td class="text-muted">Closed by Linda with fix tracked in the 3PIP engineering task. Measurement alignment being resolved as part of the broader 3PIP initiative</td>
           <td class="rc-cell"><span class="pill rc-mitigated">Mitigated</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
@@ -180,9 +179,9 @@
         <tr>
           <td><div class="bug-name">Unable to create a gift deal giftable (DE)</div><a class="asana-link" href="https://app.asana.com/0/0/1213466085608088/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p2">P2</span></td><td class="text-mono text-muted">Mar 30</td>
-          <td class="text-muted">G-Live deal fine print indicated giftability but "Buy as Gift" button was absent — likely a fine print copy mismatch on a specific deal</td>
-          <td class="text-muted">Deal went offline before fix could be applied; similar G-Live deals verified to have gifting enabled. Closed as no longer reproducible</td>
-          <td class="rc-cell"><span class="pill rc-resolved">Case resolved</span></td>
+          <td class="text-muted">TPIS LIVE vertical deals in DE non-giftable by design (fixed-date live events incompatible with gifting model); fine print mentioning "purchased as gifts" is standard merchant copy, not Groupon's gifting flow</td>
+          <td class="text-muted">GPD-161: IsGiftable = TRUE now required before gifting tags are applied, preventing non-giftable LIVE deals from appearing on gifting pages. Non-Giftable flag confirmed correct by investigation</td>
+          <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
           <td><span class="cat-pill">Data/config</span></td>
         </tr>
 
@@ -362,7 +361,7 @@
         <tr>
           <td><div class="bug-name">Make the Support ID more visible on Gift Emails</div><a class="asana-link" href="https://app.asana.com/0/0/1213413570720141/f" target="_blank">↗ Asana</a></td>
           <td><span class="pill p3">P3</span></td><td class="text-mono text-muted">Feb 26</td>
-          <td class="text-muted">Support ID was present in gift emails but carried low visual prominence — small font, no emphasis — making it hard to locate for customers and CS agents</td>
+          <td class="text-muted">Support ID present in gift emails but low visual prominence — small font, no emphasis — making it hard to locate for customers and CS agents</td>
           <td class="text-muted">Support ID styling updated in gift email template; now displayed more prominently to improve CS efficiency and customer self-service</td>
           <td class="rc-cell"><span class="pill rc-fixed">Root cause fixed</span></td>
           <td><span class="cat-pill">UI/UX</span></td>
@@ -455,7 +454,7 @@
 
   <div class="footer">
     <span>Gifting Team · Groupon · All closure reasons verified from Asana task comments and Jira references</span>
-    <span>Last updated Mar 31, 2026</span>
+    <span>Last updated Apr 3, 2026</span>
   </div>
 
 </div>
